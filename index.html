@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta>
+    <title>D3 Page Template</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+
+<body>
+    <div>
+        <label for="artist-search">Search Artist:</label>
+        <input type="text" id="artist-search" placeholder="Enter artist name">
+        <button id="reset-button">Reset View</button>
+        <a href="text.html">View Documentation Page</a>
+    </div>
+
+    <script>
+        // Width and height
+        var w = 1000;
+        var h = 1000;
+        var padding = 100;
+
+        var fixedKeyData = [
+            { label: "Single", color: "magenta", type: "single" },
+            { label: "Album", color: "#89CFF0", type: "album" },
+            { label: "Soundtrack", color: "grey", type: "compilation" }
+        ];
+
+        var svg = d3.select("body")
+            .append("svg")
+            .attr("width", w)
+            .attr("height", h);
+
+        d3.csv("music_data.csv").then(function (dataset) {
+            console.log("Data loaded:", dataset);
+
+            var cleanedDataset = dataset.filter(function (d) {
+                return d.artist_popularity != null
+                    && !isNaN(d.artist_popularity)
+                    && d.track_popularity != null
+                    && !isNaN(d.track_popularity)
+                    && d.artist_name !== "N/A";
+            });
+
+
+            var xScale = d3.scaleLinear()
+                .domain([0, 100])
+                .range([padding, w - padding]);
+
+
+            var yScale = d3.scaleLinear()
+                .domain([0, 100])
+                .range([h - padding, padding]);
+
+
+            // axes
+            var xAxis = d3.axisBottom(xScale)
+                .ticks(10);
+
+            var yAxis = d3.axisLeft(yScale)
+                .ticks(10);
+
+            svg.append("g")
+                .attr("transform", "translate(0," + (h - padding) + ")")
+                .call(xAxis);
+
+            svg.append("g")
+                .attr("transform", "translate(" + padding + ",0)")
+                .call(yAxis);
+
+            svg.append("text")
+                .attr("class", "x axis-label")
+                .attr("x", w / 2)
+                .attr("y", h - padding / 1.5)
+                .style("text-anchor", "middle")
+                .style("font-size", "18px")
+                .style("font-weight", "bold")
+                .text("Artist Popularity Score (0-100)");
+
+            svg.append("text")
+                .attr("class", "y axis-label")
+                .attr("transform", "rotate(-90)")
+                .attr("y", padding / 2)
+                .attr("x", 0 - (h / 2))
+                .attr("dy", "1em")
+                .style("text-anchor", "middle")
+                .style("font-size", "18px")
+                .style("font-weight", "bold")
+                .text("Track Popularity Score (0-100)");
+
+
+            // data points
+            svg.selectAll("circle")
+                .data(cleanedDataset)
+                .enter()
+                .append("circle")
+                .attr("cx", function (d) {
+                    return xScale(d.artist_popularity);
+                })
+                .attr("cy", function (d) {
+                    return yScale(d.track_popularity);
+                })
+                .attr("r", 5)
+                .attr("fill", function (d) {
+                    var name = d.album_type;
+
+                    var normalizedName = name ? name.toLowerCase().trim() : "unknown_type";
+
+                    if (normalizedName == "single") {
+                        return "magenta"
+                    }
+                    else if (normalizedName == "album") {
+                        return "#89CFF0"
+                    }
+                    else if (normalizedName == "compilation") {
+                        return "grey"
+                    }
+                    else {
+                        d3.select(this).remove()
+                    }
+                })
+                .attr("stroke", "#424242")
+                .attr("stroke-width", function (d) {
+                    var name = d.artist_name;
+                    return 1.5
+                })
+
+                // interactivity
+                .on("mouseover", function (event, d) {
+                    var currentElement = d3.select(this);
+                    if (currentElement.attr("opacity") < 1.0) {
+                        return;
+                    }
+                    d3.select(this)
+                        .attr("fill", "white")
+                        .attr("r", 8)
+                        .attr("stroke-width", 2.5)
+
+                    var xPosition = parseFloat(d3.select(this).attr("cx")) + 2
+                    var yPosition = parseFloat(d3.select(this).attr("cy")) - 20
+
+                    svg.append("text")
+                        .attr("id", "tooltip")
+                        .attr("x", 500)
+                        .attr("y", 970)
+                        .attr("text-anchor", "middle")
+                        .attr("font-family", "sans-serif")
+                        .attr("font-size", "22px")
+                        .attr("font-weight", "bold")
+                        .attr("fill", "black")
+                        .text(d.track_name + ", " + d.artist_name);
+
+                    svg.append("text")
+                        .attr("id", "tooltipData")
+                        .attr("x", xPosition)
+                        .attr("y", yPosition)
+                        .attr("text-anchor", "middle")
+                        .attr("font-family", "sans-serif")
+                        .attr("font-size", "30px")
+                        .attr("font-weight", "bold")
+                        .attr("fill", "black")
+                        .attr("stroke", "white")
+                        .attr("stroke-width", 1.2)
+                        .text(d.track_popularity + "," + d.artist_popularity);
+                })
+                .on("mouseout", function (d) {
+                    d3.select(this)
+                        .attr("fill", function (d) {
+                            var name = d.album_type;
+
+                            if (name == "single") {
+                                return "magenta"
+                            }
+                            else if (name == "album") {
+                                return "#89CFF0"
+                            }
+                            else if (name == "compilation") {
+                                return "grey"
+                            }
+                        })
+                        .attr("r", 5)
+                        .attr("stroke-width", 1.5)
+                    d3.select("#tooltip").remove()
+                    d3.select("#tooltipData").remove()
+                    d3.select("#tooltip-bg").remove();
+                })
+                .on("click", function (event, d) {
+                    showArtist(d.artist_name);
+                });
+
+            function showArtist(clcikedArtist) {
+                svg.selectAll("circle")
+                    .attr("opacity", function (d) {
+                        var name = d.artist_name.toLowerCase();
+
+                        if (name.includes(clcikedArtist.toLowerCase())) {
+                            return 1.0
+                        }
+                        else {
+                            return 0.05
+                        }
+                    })
+            }
+            svg.on("click", function (event) {
+                if (event.target === this) {
+                    svg.selectAll("circle")
+                        .attr("opacity", 1.0);
+                }
+            });
+
+            // search functionality
+            var searchInput = d3.select("#artist-search");
+            var resetButton = d3.select("#reset-button");
+
+            searchInput.on("keyup", function (event) {
+                var searchTerm = d3.select(this).property("value");
+                showArtist(searchTerm);
+            });
+
+            resetButton.on("click", function () {
+                svg.selectAll("circle")
+                    .attr("opacity", 1.0);
+                searchInput.property("value", "");
+            });
+
+
+            // legend
+            var legendGroup = svg.append("g")
+                .attr("class", "legend")
+                .attr("transform", "translate(" + (w - 890) + "," + (padding) + ")");
+
+
+            var legend = legendGroup.selectAll(".legend-item")
+                .data(fixedKeyData)
+                .enter().append("g")
+                .attr("class", "legend-item")
+                .attr("transform", function (d, i) {
+                    return "translate(0, " + (i * 25) + ")";
+                });
+
+            legend.append("rect")
+                .attr("id", "legend-color")
+                .attr("width", 18)
+                .attr("height", 18)
+                .attr("fill", function (d) { return d.color; })
+                .attr("stroke", "black");
+
+
+            legend.append("text")
+                .attr("x", 20)
+                .attr("y", 16)
+                .style("text-anchor", "start")
+                .style("font-size", "20px")
+                .text(function (d) { return d.label; });
+
+            legend.on("click", function (event, d) {
+                var currentOpacity = d3.selectAll("circle")
+                    .filter(function (data) { return data.album_type === d.type; })
+                    .attr("opacity");
+
+                var newOpacity = currentOpacity == 1.0 ? 0.02 : 1.0;
+
+                d3.selectAll("circle")
+                    .filter(function (data) { return data.album_type === d.type; })
+                    .attr("opacity", newOpacity);
+            });
+        });
+    </script>
+</body>
+
+</html>

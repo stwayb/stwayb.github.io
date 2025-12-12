@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta>
+    <title>D3 Page Template</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+
+<body>
+
+    <script>
+        // Width and height
+        var w = 1000;
+        var h = 1000;
+        var padding = 100;
+
+        var xScale = d3.scaleLinear()
+                .domain([0, 100])
+                .range([padding, w - padding]);
+
+
+            var yScale = d3.scaleLinear()
+                .domain([0, 100])
+                .range([h - padding, padding]);
+
+
+        var svg = d3.select("body")
+            .append("svg")
+            .attr("width", w)
+            .attr("height", h);
+
+        d3.csv("music_data.csv").then(function (dataset) {
+            console.log("Data loaded:", dataset);
+
+            var cleanedDataset = dataset.filter(function (d) {
+                return d.artist_popularity != null
+                    && !isNaN(d.artist_popularity)
+                    && d.track_popularity != null
+                    && !isNaN(d.track_popularity)
+                    && d.artist_name !== "N/A";
+            });
+
+
+            // data points
+            svg.selectAll("circle")
+                .data(cleanedDataset)
+                .enter()
+                .append("circle")
+                .attr("cx", function (d) {
+                    return xScale(d.artist_popularity);
+                })
+                .attr("cy", function (d) {
+                    return yScale(d.track_popularity);
+                })
+                .attr("r", 3)
+                .attr("fill", function (d) {
+                    var name = d.album_type;
+
+                    var normalizedName = name ? name.toLowerCase().trim() : "unknown_type";
+
+                    if (normalizedName == "single") {
+                        return "magenta"
+                    }
+                    else  {
+                        return "#89CFF0"
+                    }
+                })
+
+                
+        });
+    </script>
+</body>
+
+</html>
